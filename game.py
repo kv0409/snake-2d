@@ -1,4 +1,8 @@
 # Snake class
+import json
+import os
+
+
 class Snake:
     def __init__(self, boundary=(20, 20)):
         self.head, self.body, self.direction = None, None, None
@@ -132,6 +136,7 @@ class Game:
     def update(self):
         if self.check_game_over():
             self.state = "game_over"
+            self.update_scores()
         elif self.state == "game":
             self.snake.move()
             if self.check_food_collision():
@@ -139,6 +144,27 @@ class Game:
                 self.food.spawn(self.snake)
                 self.update_score()
 
+    def update_scores(self):
+        # Current user
+        user = os.getlogin()
+        highscores = self.get_highscores()
+        # If the user is not in the highscores file, add them
+        if user not in highscores:
+            highscores[user] = self.get_score()
+        # If the user is in the highscores file, check if their score is higher than the current highscore
+        elif self.get_score() > highscores[user]:
+            highscores[user] = self.get_score()
+        # Write the new highscores to the file
+        with open(os.path.join(os.path.expanduser("~"), "Documents", "snake_scores.json"), "w") as f:
+            f.write(json.dumps(highscores))
+
+    def get_highscores(self):
+        try:
+            with open(os.path.join(os.path.expanduser("~"), "Documents", "snake_scores.json")) as f:
+                highscores = json.loads(f.read())
+        except FileNotFoundError:
+            highscores = {"SnakyAI": 100}
+        return highscores
 
 # Main class
 import pygame
@@ -192,6 +218,25 @@ class GameView:
         game_over_rect.midtop = (self.boundary[0] * self.cell_size / 2, self.boundary[1] * self.cell_size / 2)
         self.screen.blit(game_over_text, game_over_rect)
 
+    def draw_highscores(self):
+        font = pygame.font.Font("freesansbold.ttf", 16)
+        highscores_text = font.render("Highscores", True, (255, 255, 255))
+        highscores_rect = highscores_text.get_rect()
+        highscores_rect.topleft = (10, 10)
+        self.screen.blit(highscores_text, highscores_rect)
+        highscores = self.game.get_highscores()
+
+        # Sort the highscores by value
+        highscores = {k: v for k, v in sorted(highscores.items(), key=lambda item: item[1], reverse=True)}
+        y = 40
+        # Showing the top 5 highscores
+        for user, score in list(highscores.items())[:5]:
+            highscore_text = font.render(f"{user}: {score}", True, (255, 255, 255))
+            highscore_rect = highscore_text.get_rect()
+            highscore_rect.topleft = (10, y)
+            self.screen.blit(highscore_text, highscore_rect)
+            y += 20
+
     def draw_restart(self):
         font = pygame.font.Font("freesansbold.ttf", 16)
         restart_text = font.render("Press R to restart", True, (255, 255, 255))
@@ -241,6 +286,16 @@ class GameView:
         self.draw_game_over()
         self.draw_restart()
         self.draw_exit()
+        self.draw_highscores()
+        pygame.display.flip()
+
+    def draw_welcome_screen(self):
+        self.screen.fill((0, 0, 0))
+        font = pygame.font.Font("freesansbold.ttf", 48)
+        welcome_text = font.render("Welcome to Snake", True, (255, 255, 255))
+        welcome_rect = welcome_text.get_rect()
+        welcome_rect.midtop = (self.boundary[0] * self.cell_size / 2, self.boundary[1] * self.cell_size / 2)
+        self.screen.blit(welcome_text, welcome_rect)
         pygame.display.flip()
 
     def draw(self):
